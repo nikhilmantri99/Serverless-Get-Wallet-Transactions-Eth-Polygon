@@ -1,0 +1,28 @@
+{
+  "name": "nikhil-get-txns",
+  "version": "0.1.0",
+  "description": "A TypeScript starter for Serverless Framework",
+  "main": "handler.js",
+  "scripts": {
+    "test": "serverless-bundle test"
+  },
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnomalyInnovations/serverless-typescript-starter.git"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.64",
+    "@types/jest": "^26.0.14",
+    "aws-sdk": "^2.1064.0",
+    "serverless-bundle": "^5.2.0",
+    "serverless-dotenv-plugin": "^3.10.0",
+    "serverless-offline": "^8.3.1"
+  },
+  "dependencies": {
+    "moralis": "^1.1.2",
+    "node-fetch": "^3.2.0"
+  }
+}
