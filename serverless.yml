@@ -52,14 +52,17 @@ functions:
           path: hello
           cors: true
           method: get
-          # RequestParameters:
-          #   - method.request.querystring.address:
-          #       Required: true
-          #       Caching: false
-          #   - method.request.querystring.chain:
-          #       Required: true
-          #       Caching: false
-          #authorizer: aws_iam
+          RequestParameters:
+            - method.request.querystring.wallet:
+                Required: true
+                Caching: false
+            - method.request.querystring.chain:
+                Required: true
+                Caching: false
+            - method.request.querystring.userid:
+                Required: false
+                Caching: false
+          # authorizer: aws_iam
     timeout: 60
 
 custom:

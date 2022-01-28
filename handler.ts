@@ -65,7 +65,7 @@ async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
                 && ans["data"]["items"][0]["log_events"][i]["sender_contract_decimals"]==18
                 && ans["data"]["items"][0]["log_events"][i]["decoded"]["name"]=="Transfer"
                 && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"]!=null 
-                && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"][2].value!=null){
+                && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"][2]["value"]!=null){
                 const rate= await find_conversion_rate(ans["data"]["items"][0]["log_events"][i]["sender_contract_ticker_symbol"],
                     "ETH",ans["data"]["items"][0]["log_events"][i]["block_signed_at"]);
                 //console.log("Conversion Rate: ",rate," of 1 ",ans.data.items[0].log_events[i].sender_contract_ticker_symbol," to ETH");
@@ -155,15 +155,10 @@ async function polygonscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
                 commission+=parseInt(ans["result"][i]["value"])/(10**18);
             }
         }
-    }
-    if(mainmoney==0 && commission==0){
-        return null;
-    }
-    else{
-        if(count_occurence>0) return [mainmoney/count_occurence,commission/count_occurence,"MATIC"];
-        else if(count_occurence2>0) return [mainmoney/count_occurence2,commission/count_occurence2,"MATIC"];
-        else return [mainmoney,commission,"MATIC"];
-    }
+    }    
+    if(count_occurence>0) return [mainmoney/count_occurence,commission/count_occurence,"MATIC"];
+    else if(count_occurence2>0) return [mainmoney/count_occurence2,commission/count_occurence2,"MATIC"];
+    else return [mainmoney,commission,"MATIC"];
 }
 
 
@@ -185,20 +180,21 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     }
 }
 
-async function return_NFT_transactions(userid,chain_name,waddress){
+async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     AWS.config.update({region:'us-east-1'});
     const dynamoDb = new AWS.DynamoDB.DocumentClient();
     const get_back = {
-        TableName: "lambda-api-wallet-transactions-db",
+        TableName: "lambda-wallet-chain-transactions",
         // 'Key' defines the partition key and sort key of the item to be retrieved
         Key: {
-          userId: userid, // The id of the author
-          walletId: waddress, // The id of the note from the path
+            walletId: waddress, // The id of the author
+            chainName: chain_name, // The id of the note from the path
         },
     };
     const newResult = await dynamoDb.get(get_back).promise();
     if(newResult!=null && newResult.Item!=null){
         console.log("exists in the table.");
+        console.log(newResult);
         return {
             statusCode: 200,
             body: newResult,
@@ -208,13 +204,13 @@ async function return_NFT_transactions(userid,chain_name,waddress){
     const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
     const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
     Moralis.start({ serverUrl, appId });
-    const transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 5});
+    const transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: max_num});
     //console.log(transfersNFT);
-    console.log("For wallet address:",waddress," ,chain: ",chain_name,"\nFollowing are the NFT Transaction values: ")
+    console.log("For wallet address:",waddress," ,chain: ",chain_name,"\nFollowing are the NFT Transaction values: ");
     let count=0;
     for(let i=0;i<transfersNFT.result.length;i++){
         //console.log("Hello");
-        const value_from_moralis=parseInt(transfersNFT.result[i].value)/(10**18);
+        const value_from_moralis=parseInt(transfersNFT["result"][i]["value"])/(10**18);
         //console.log(transfersNFT.result[i].transaction_hash);
         const value_from_hash_scans=await value_from_hash(transfersNFT["result"][i]["transaction_hash"],waddress,
                                                            transfersNFT["result"][i]["from_address"],transfersNFT["result"][i]["to_address"],chain_name);
@@ -231,7 +227,7 @@ async function return_NFT_transactions(userid,chain_name,waddress){
                 if(chain_name=="polygon"){
                     ticker1="MATIC";
                 }
-                const rate=await find_conversion_rate(ticker1,final_value[2],transfersNFT.result[i].block_timestamp);
+                const rate=await find_conversion_rate(ticker1,final_value[2],transfersNFT["result"][i]["block_timestamp"]);
                 final_value[0]+=rate*value_from_moralis;
             }
         }
@@ -241,10 +237,14 @@ async function return_NFT_transactions(userid,chain_name,waddress){
         else{
             final_value=[value_from_moralis,0,"ETH"];
         }
+        const rate=await find_conversion_rate(final_value[2],"ETH",transfersNFT["result"][i]["block_timestamp"]);
+        final_value[0]=rate*final_value[0];
+        final_value[1]=rate*final_value[1];
+        final_value[2]="ETH";
         count++;
         let action;
         let net_value_;
-        if(transfersNFT.result[i].from_address==waddress){
+        if(transfersNFT["result"][i]["from_address"]==waddress){
             action="Sold";
             net_value_=final_value[0];
             console.log(count,". Sold NFT. Revenue Increases. Value:",final_value[0],final_value[2],". Hash: ",transfersNFT.result[i].transaction_hash);
@@ -256,7 +256,7 @@ async function return_NFT_transactions(userid,chain_name,waddress){
         }
         const this_transaction={
             Item:  {
-                userId :'1',
+                userId :userid,
                 walletId : waddress,
                 blockchain_name: chain_name,
                 transaction_hash: transfersNFT.result[i].transaction_hash,
@@ -274,20 +274,18 @@ async function return_NFT_transactions(userid,chain_name,waddress){
         transcations_list.push(this_transaction);
     }
     const transactions={
-        TableName: "lambda-api-wallet-transactions-db",
+        TableName: get_back.TableName,
         Item: {
-            userId :get_back.Key.userId,
-            walletId : get_back.Key.walletId,
+            walletId :get_back.Key.walletId,
+            chainName : get_back.Key.chainName,
             transactions: transcations_list,
         }
     }
     try{
         await dynamoDb.put(transactions).promise();
         const response_body = await dynamoDb.get(get_back).promise();
-        return {
-            statusCode: 200,
-            body: response_body,
-        };
+        console.log(response_body)
+        return response_body;
     }
     catch(e){
         console.log("Error is found....");
@@ -301,14 +299,31 @@ async function return_NFT_transactions(userid,chain_name,waddress){
 
 //export async function handler(event, context){
 export const hello = async (event, context)=>{ 
-    const wallet = "0x899241b0c41051313ce36271a7e13d54c94877a1";
-    const userId = "1";
-    let chain_name= "eth";
+    const wallet = event["queryStringParameters"]['wallet'];
+    if(wallet==null){
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "No wallet provided." }),
+        };
+    }
+    let userId = event["queryStringParameters"]['userid'];
+    if(userId==null){
+        userId="1";
+    }
+    let chain_name= event["queryStringParameters"]['chain'];
     if(chain_name==null){
         chain_name="eth";
     }
     const ans= await return_NFT_transactions(userId,chain_name,wallet);
-    return ans;
+    const response = {
+        statusCode: 200,
+        headers: {
+            "my_header": "my_value"
+        },
+        body:JSON.stringify(ans,null,2),
+        isBase64Encoded: false
+    };
+    return response;
 };
 
 
