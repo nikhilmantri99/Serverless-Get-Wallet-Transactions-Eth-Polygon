@@ -300,6 +300,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
 //export async function handler(event, context){
 export const hello = async (event, context)=>{ 
     const wallet = event["queryStringParameters"]['wallet'];
+    //const wallet = "0x4958cde93218e9bbeaa922cd9f8b3feec1342772";
     if(wallet==null){
         return {
             statusCode: 500,
@@ -307,10 +308,12 @@ export const hello = async (event, context)=>{
         };
     }
     let userId = event["queryStringParameters"]['userid'];
+    //let userId = "1";
     if(userId==null){
         userId="1";
     }
     let chain_name= event["queryStringParameters"]['chain'];
+    //let chain_name="eth";
     if(chain_name==null){
         chain_name="eth";
     }
