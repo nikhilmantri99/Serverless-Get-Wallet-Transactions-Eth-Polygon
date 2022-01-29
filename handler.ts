@@ -259,6 +259,8 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
                 userId :userid,
                 walletId : waddress,
                 blockchain_name: chain_name,
+                old_NFT_owner: transfersNFT.result[i].from_address,
+                new_NFT_owner: transfersNFT.result[i].to_address,
                 transaction_hash: transfersNFT.result[i].transaction_hash,
                 transaction_timestamp: transfersNFT.result[i].block_timestamp,
                 tokenaddress : transfersNFT.result[i].token_address,
