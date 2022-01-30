@@ -52,12 +52,19 @@ async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     const url_complete=part1.concat(part2,part3,part4);
     const ans = await fetch(url_complete).then(response=>{return response.json();});
     let mainmoney=0,comission=0,i=0;
+    let rate_matic2eth=1;
+    let gas_price=0;
     if(ans["data"]!=null && ans["data"]["items"]!=null){
+        if(ans["data"]["updated_at"]!=null) rate_matic2eth=await find_conversion_rate("MATIC","ETH",ans["data"]["updated_at"]);
         for(i=0;i<ans["data"]["items"][0]["log_events"].length;i++){
             if(ans["data"]["items"][0]["log_events"][i]["sender_contract_ticker_symbol"]=="ENS"){
                 return [-1];
             }
         }
+    }
+    gas_price=parseInt(ans["data"]["items"][0]["gas_price"])/(10**18);
+    if(chain_name=="polygon"){
+        gas_price=rate_matic2eth*gas_price;
     }
     if(ans["data"]!=null && ans["data"]["items"]!=null){
         for(i=0;i<ans["data"]["items"][0]["log_events"].length;i++){
@@ -88,8 +95,8 @@ async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
             }
         }
     }
-    if(mainmoney==0 && comission==0) return null;
-    else return [mainmoney,comission,"ETH"];
+    if(mainmoney==0 && comission==0) return [null,gas_price];
+    else return [[mainmoney,comission,"ETH"],gas_price];
 }
 
 async function etherscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
@@ -163,20 +170,22 @@ async function polygonscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
 
 
 async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
-    const ans1= await covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name);
-    if(ans1==[-1]){
+    const ans11= await covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name);
+    if(ans11==[-1]){
         return -1;
     }
-    else if(ans1==null && chain_name=="eth"){
+    const ans1=ans11[0];
+    const gas_price=ans11[1];
+    if(ans1==null && chain_name=="eth"){
         const ans2= await etherscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name);
-        return ans2;
+        return [ans2,gas_price];
     }
     else if(ans1==null && chain_name=="polygon"){
         const ans2= await polygonscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name);
-        return ans2;
+        return [ans2,gas_price];
     }
     else{
-        return ans1;
+        return [ans1,gas_price];
     }
 }
 
@@ -212,9 +221,12 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         //console.log("Hello");
         const value_from_moralis=parseInt(transfersNFT["result"][i]["value"])/(10**18);
         //console.log(transfersNFT.result[i].transaction_hash);
-        const value_from_hash_scans=await value_from_hash(transfersNFT["result"][i]["transaction_hash"],waddress,
+        const value_from_hash_scans_=await value_from_hash(transfersNFT["result"][i]["transaction_hash"],waddress,
                                                            transfersNFT["result"][i]["from_address"],transfersNFT["result"][i]["to_address"],chain_name);
         //const value_from_hash_scans=null;
+        const value_from_hash_scans=value_from_hash_scans_[0];
+        let gas_price=value_from_hash_scans_[1];
+        if(gas_price==null) gas_price=0;
         if(value_from_hash_scans==-1){
             continue;
         }
@@ -269,7 +281,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
                 value: final_value[0],
                 value_mp_fees: final_value[1],
                 net_value: net_value_,
-                gas_price: 0,
+                gas_price: gas_price,
                 currency_of_transaction: final_value[2],
             }
         };
