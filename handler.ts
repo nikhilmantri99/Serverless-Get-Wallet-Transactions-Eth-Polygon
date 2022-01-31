@@ -8,7 +8,6 @@
 import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
-// let exports = {"__esModule": true};
 
 async function find_conversion_rate(ticker1,ticker2,timeline){ // gets price of ticker 1 in terms of ticker 2
     if((ticker1=="ETH" && ticker2=="WETH") || (ticker1=="WETH" && ticker2=="ETH") || ticker1==ticker2){
@@ -29,7 +28,7 @@ async function find_conversion_rate(ticker1,ticker2,timeline){ // gets price of 
     const ans = await fetch(url_complete).then(response=>{return response.json();});
     //console.log(url_complete);
     //console.log(ans);
-    if(ans==null || ans["data"]==null) return null;
+    if(ans==null || ans["data"]==null || ans["data"]["prices"]==null || ans["data"]["prices"].length==0 || ans["data"]["prices"][0]["price"]==null) return 0;
     else{
        return ans["data"]["prices"][0]["price"]; 
     }
@@ -56,11 +55,6 @@ async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     let gas_price=0;
     if(ans["data"]!=null && ans["data"]["items"]!=null){
         if(ans["data"]["updated_at"]!=null) rate_matic2eth=await find_conversion_rate("MATIC","ETH",ans["data"]["updated_at"]);
-        for(i=0;i<ans["data"]["items"][0]["log_events"].length;i++){
-            if(ans["data"]["items"][0]["log_events"][i]["sender_contract_ticker_symbol"]=="ENS"){
-                return [-1];
-            }
-        }
     }
     gas_price=parseInt(ans["data"]["items"][0]["gas_price"])/(10**18);
     if(chain_name=="polygon"){
@@ -213,16 +207,29 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
     const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
     Moralis.start({ serverUrl, appId });
-    const transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: max_num});
+    var all_transfers=[];
+    var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress});
     //console.log(transfersNFT);
-    console.log("For wallet address:",waddress," ,chain: ",chain_name,"\nFollowing are the NFT Transaction values: ");
+    all_transfers=all_transfers.concat(transfersNFT.result);
+    var total_nft_transfers=transfersNFT.total;
+    var n=1;
+    while(all_transfers.length<total_nft_transfers){
+        console.log("Here");
+        transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, offset: n*500});
+        all_transfers=all_transfers.concat(transfersNFT.result);
+        console.log(all_transfers.length);
+        n++;
+    }
+    console.log(total_nft_transfers,all_transfers.length);
+    console.log(all_transfers[0]);
+    console.log("For wallet address:",waddress," ,chain: ",chain_name,"total transactions:",all_transfers.length,"\nFollowing are the NFT Transaction values: ");
     let count=0;
-    for(let i=0;i<transfersNFT.result.length;i++){
+    for(let i=0;i<all_transfers.length;i++){
         //console.log("Hello");
-        const value_from_moralis=parseInt(transfersNFT["result"][i]["value"])/(10**18);
+        const value_from_moralis=parseInt(all_transfers[i]["value"])/(10**18);
         //console.log(transfersNFT.result[i].transaction_hash);
-        const value_from_hash_scans_=await value_from_hash(transfersNFT["result"][i]["transaction_hash"],waddress,
-                                                           transfersNFT["result"][i]["from_address"],transfersNFT["result"][i]["to_address"],chain_name);
+        const value_from_hash_scans_=await value_from_hash(all_transfers[i]["transaction_hash"],waddress,
+        all_transfers[i]["from_address"],all_transfers[i]["to_address"],chain_name);
         //const value_from_hash_scans=null;
         const value_from_hash_scans=value_from_hash_scans_[0];
         let gas_price=value_from_hash_scans_[1];
@@ -239,7 +246,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
                 if(chain_name=="polygon"){
                     ticker1="MATIC";
                 }
-                const rate=await find_conversion_rate(ticker1,final_value[2],transfersNFT["result"][i]["block_timestamp"]);
+                const rate=await find_conversion_rate(ticker1,final_value[2],all_transfers[i]["block_timestamp"]);
                 final_value[0]+=rate*value_from_moralis;
             }
         }
@@ -249,41 +256,39 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         else{
             final_value=[value_from_moralis,0,"ETH"];
         }
-        const rate=await find_conversion_rate(final_value[2],"ETH",transfersNFT["result"][i]["block_timestamp"]);
+        const rate=await find_conversion_rate(final_value[2],"ETH",all_transfers[i]["block_timestamp"]);
         final_value[0]=rate*final_value[0];
         final_value[1]=rate*final_value[1];
         final_value[2]="ETH";
         count++;
         let action;
         let net_value_;
-        if(transfersNFT["result"][i]["from_address"]==waddress){
+        if(all_transfers[i]["from_address"]==waddress){
             action="Sold";
             net_value_=final_value[0];
-            console.log(count,". Sold NFT. Revenue Increases. Value:",final_value[0],final_value[2],". Hash: ",transfersNFT.result[i].transaction_hash);
+            console.log(count,". Sold NFT. Revenue Increases. Value:",final_value[0],final_value[2],". Hash: ",all_transfers[i].transaction_hash);
         }
         else{
             action="Bought";
             net_value_=final_value[0]+final_value[1];
-            console.log(count,". Bought NFT. Spending Increases. Value:",final_value[0]+final_value[1],final_value[2],". Hash: ",transfersNFT.result[i].transaction_hash);
+            console.log(count,". Bought NFT. Spending Increases. Value:",final_value[0]+final_value[1],final_value[2],". Hash: ",all_transfers[i].transaction_hash);
         }
         const this_transaction={
-            Item:  {
-                userId :userid,
-                walletId : waddress,
-                blockchain_name: chain_name,
-                old_NFT_owner: transfersNFT.result[i].from_address,
-                new_NFT_owner: transfersNFT.result[i].to_address,
-                transaction_hash: transfersNFT.result[i].transaction_hash,
-                transaction_timestamp: transfersNFT.result[i].block_timestamp,
-                tokenaddress : transfersNFT.result[i].token_address,
-                tokenid: transfersNFT.result[i].token_id,
-                activity: action,
-                value: final_value[0],
-                value_mp_fees: final_value[1],
-                net_value: net_value_,
-                gas_price: gas_price,
-                currency_of_transaction: final_value[2],
-            }
+            userId :userid,
+            walletId : waddress,
+            blockchain_name: chain_name,
+            old_NFT_owner: all_transfers[i].from_address,
+            new_NFT_owner: all_transfers[i].to_address,
+            transaction_hash: all_transfers[i].transaction_hash,
+            transaction_timestamp: all_transfers[i].block_timestamp,
+            tokenaddress : all_transfers[i].token_address,
+            tokenid: all_transfers[i].token_id,
+            activity: action,
+            value: final_value[0],
+            value_mp_fees: final_value[1],
+            net_value: net_value_,
+            gas_price: gas_price,
+            currency_of_transaction: final_value[2],
         };
         transcations_list.push(this_transaction);
     }
@@ -342,5 +347,35 @@ export const hello = async (event, context)=>{
     };
     return response;
 };
+
+// export const hello = async (event, context)=>{ 
+//     const wallet = "0x899241b0c41051313ce36271a7e13d54c94877a1";
+//     if(wallet==null){
+//         return {
+//             statusCode: 500,
+//             body: JSON.stringify({ error: "No wallet provided." }),
+//         };
+//     }
+//     //let userId = event["queryStringParameters"]['userid'];
+//     let userId = "1";
+//     if(userId==null){
+//         userId="1";
+//     }
+//     //let chain_name= event["queryStringParameters"]['chain'];
+//     let chain_name="eth";
+//     if(chain_name==null){
+//         chain_name="eth";
+//     }
+//     const ans= await return_NFT_transactions(userId,chain_name,wallet);
+//     const response = {
+//         statusCode: 200,
+//         headers: {
+//             "my_header": "my_value"
+//         },
+//         body:JSON.stringify(ans,null,2),
+//         isBase64Encoded: false
+//     };
+//     return response;
+// };
 
 
