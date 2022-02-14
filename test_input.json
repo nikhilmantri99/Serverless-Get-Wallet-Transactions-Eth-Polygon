@@ -1,0 +1,7 @@
+{
+    "queryStringParameters":{
+        "wallet":"0x4958cde93218e9bbeaa922cd9f8b3feec1342772",
+        "userid":"1",
+        "chain":"eth"
+    }
+}
