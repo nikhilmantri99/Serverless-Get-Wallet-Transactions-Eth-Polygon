@@ -207,42 +207,59 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
 
 async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     AWS.config.update({region:'us-east-1'});
+    var to_update=false;
+    var curr_txn_list=[];
+    var txns_skipped=0;
+    var txns_processed=0;
     const dynamoDb = new AWS.DynamoDB.DocumentClient();
     const get_back = {
         TableName: "lambda-wallet-chain-transactions",
-        // 'Key' defines the partition key and sort key of the item to be retrieved
         Key: {
-            walletId: waddress, // The id of the author
-            chainName: chain_name, // The id of the note from the path
-        },
+            walletId: waddress,
+            chainName: chain_name,        },
     };
     const newResult = await dynamoDb.get(get_back).promise();
     if(newResult!=null && newResult.Item!=null){
+        to_update=true;
+        curr_txn_list=curr_txn_list.concat(newResult.Item["transactions"]);
+        //console.log(curr_txn_list);
         console.log("exists in the table.");
         console.log(newResult);
+        txns_skipped=newResult.Item["txns_skipped"];
+        txns_processed=newResult.Item["txns_processed"];
+        // return {
+        //     statusCode: 200,
+        //     body: newResult,
+        // };
+    }
+    var transcations_list=[];
+    const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
+    const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
+    Moralis.start({ serverUrl, appId });
+    var all_transfers=[];
+    console.log("fetching...");
+    var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
+    var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
+    console.log("Required total NFT transfers: ",total_nft_transfers_required);
+    if(total_nft_transfers_required<=0){
         return {
             statusCode: 200,
             body: newResult,
         };
     }
-    const transcations_list=[];
-    const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
-    const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
-    Moralis.start({ serverUrl, appId });
-    var all_transfers=[];
-    var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress});
-    //console.log(transfersNFT);
-    all_transfers=all_transfers.concat(transfersNFT.result);
-    var total_nft_transfers=transfersNFT.total;
-    var n=1;
-    while(all_transfers.length<total_nft_transfers){
+    var n=0;
+    while(all_transfers.length<total_nft_transfers_required){
         console.log("Here");
         transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, offset: n*500});
-        all_transfers=all_transfers.concat(transfersNFT.result);
+        var cap=500;
+        if(total_nft_transfers_required-all_transfers.length<cap){
+            cap=total_nft_transfers_required-all_transfers.length;
+        }
+        all_transfers=all_transfers.concat(transfersNFT.result.slice(0,cap));
         console.log(all_transfers.length);
         n++;
     }
-    console.log(total_nft_transfers,all_transfers.length);
+    console.log(total_nft_transfers_required,all_transfers.length);
     console.log(all_transfers[0]);
     console.log("For wallet address:",waddress," ,chain: ",chain_name,"total transactions:",all_transfers.length,"\nFollowing are the NFT Transaction values: ");
     let count=0;
@@ -257,9 +274,11 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         let gas_price=value_from_hash_scans_[1];
         let nft_count=value_from_hash_scans_[2];
         if(gas_price==null) gas_price=0;
-        if(value_from_hash_scans==-1){
+        if(value_from_hash_scans==-1){ //here we maybe skipping some transactions
+            txns_skipped++;
             continue;
         }
+        txns_processed++;
         //console.log(value_from_moralis,value_from_hash_scans);
         let final_value;
         if(value_from_hash_scans!=null){
@@ -317,12 +336,20 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         };
         transcations_list.push(this_transaction);
     }
+
+    //update list by also adding existing txns from the table
+    if(curr_txn_list.length!=0){
+        transcations_list=transcations_list.concat(curr_txn_list);
+    }
+
     const transactions={
         TableName: get_back.TableName,
         Item: {
             walletId :get_back.Key.walletId,
             chainName : get_back.Key.chainName,
             transactions: transcations_list,
+            txns_skipped : txns_skipped,
+            txns_processed : txns_processed,
         }
     }
     try{
@@ -372,35 +399,4 @@ export const hello = async (event, context)=>{
     };
     return response;
 };
-
-// export const hello = async (event, context)=>{
-//     const wallet = "0x899241b0c41051313ce36271a7e13d54c94877a1";
-//     if(wallet==null){
-//         return {
-//             statusCode: 500,
-//             body: JSON.stringify({ error: "No wallet provided." }),
-//         };
-//     }
-//     //let userId = event["queryStringParameters"]['userid'];
-//     let userId = "1";
-//     if(userId==null){
-//         userId="1";
-//     }
-//     //let chain_name= event["queryStringParameters"]['chain'];
-//     let chain_name="eth";
-//     if(chain_name==null){
-//         chain_name="eth";
-//     }
-//     const ans= await return_NFT_transactions(userId,chain_name,wallet);
-//     const response = {
-//         statusCode: 200,
-//         headers: {
-//             "my_header": "my_value"
-//         },
-//         body:JSON.stringify(ans,null,2),
-//         isBase64Encoded: false
-//     };
-//     return response;
-// };
-
 
