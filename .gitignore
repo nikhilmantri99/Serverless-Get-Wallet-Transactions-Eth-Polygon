@@ -3,7 +3,7 @@ logs
 *.log
 npm-debug.log*
 
-*.pem
+ec2_portfolio.pem
 
 # Runtime data
 pids
