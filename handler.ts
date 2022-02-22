@@ -247,6 +247,30 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
             body: newResult,
         };
     }
+    if(total_nft_transfers_required>30){
+        let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
+        let part_wallet=waddress;
+        let part2="&chain=";
+        let part_chain=chain_name;
+        let part3="&userid=";
+        let part_userid=userid;
+        server_url=server_url.concat(part_wallet,part2,part_chain,part3,part_userid);
+        console.log(server_url);
+        try{
+            const ans = await fetch(server_url).then(response=>{return response.json();});
+            return {
+                statusCode : 200,
+                body: JSON.stringify(ans,null,2),
+            }
+        }
+        catch(e){
+            return {
+                statusCode : 500,
+                body: JSON.stringify(e),
+                solution: "Try again after sometime!",
+            }
+        }
+    }
     var n=0;
     while(all_transfers.length<total_nft_transfers_required){
         console.log("Here");
@@ -389,8 +413,12 @@ export const hello = async (event, context)=>{
         chain_name="eth";
     }
     const ans= await return_NFT_transactions(userId,chain_name,wallet);
+    var sc=200;
+    if(ans["statusCode"]!=null){
+        sc=ans["statusCode"];
+    }
     const response = {
-        statusCode: 200,
+        statusCode: sc,
         headers: {
             "my_header": "my_value"
         },
