@@ -293,8 +293,8 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         };
     }
     if(total_nft_transfers_required>30){
-        let server_url= "http://localhost:3000/?wallet=";
-        //let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
+        //let server_url= "http://localhost:3000/?wallet=";
+        let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
         let part_wallet=waddress;
         let part2="&chain=";
         let part_chain=chain_name;
