@@ -218,6 +218,26 @@ async function get_metrics(ls){ //ls: list of transactions
             revenue+=ls[i]["net_value"];
         }
     }
+    var investment=0;
+    var returns=0;
+    var dict={};
+    for(var i=0;i<ls.length;i++){
+        var NFTstring=ls[i]["tokenaddress"].concat(ls[i]["tokenid"]);
+        if (ls[i]["activity"]=="Bought"){
+            dict[NFTstring]=ls[i]["net_value"];
+        }
+        else if(dict[NFTstring]!=null && ls[i]["activity"]=="Sold"){
+            investment+=dict[NFTstring];
+            returns+=ls[i]["net_value"];
+            delete dict[NFTstring];
+        }
+    }
+    if(investment!=0) {
+        ROI=(returns-investment)*100/investment;
+    }
+    for(var key in dict){
+        inventory_value+=dict[key];
+    }
     return {
         revenue : revenue,
         spending : spending,
@@ -231,11 +251,11 @@ async function get_metrics_token_wise(ls){
     for(var i=0;i<ls.length;i++){
         var token_address=ls[i]["tokenaddress"];
         if(dict[token_address]!=null){
-            console.log("in here we flyyyyy.....")
+            //console.log("in here we flyyyyy.....")
             dict[token_address].push(ls[i]);
         }
         else{
-            console.log("in here we go.....")
+            //console.log("in here we go.....")
             dict[token_address]=[];
             dict[token_address].push(ls[i]);
         }
@@ -292,7 +312,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
             body: newResult,
         };
     }
-    if(total_nft_transfers_required>30){
+    if(total_nft_transfers_required>100){
         //let server_url= "http://localhost:3000/?wallet=";
         let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
         let part_wallet=waddress;
