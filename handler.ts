@@ -205,6 +205,51 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     }
 }
 
+async function get_metrics(ls){ //ls: list of transactions
+    var revenue=0;
+    var spending=0;
+    var ROI=0;
+    var inventory_value=0;
+    for(var i=0;i<ls.length;i++){
+        if(ls[i]["activity"]=="Bought"){
+            spending+=ls[i]["net_value"];
+        }
+        else{
+            revenue+=ls[i]["net_value"];
+        }
+    }
+    return {
+        revenue : revenue,
+        spending : spending,
+        ROI : ROI,
+        inventory_value: inventory_value
+    }
+}
+
+async function get_metrics_token_wise(ls){
+    var dict={};
+    for(var i=0;i<ls.length;i++){
+        var token_address=ls[i]["tokenaddress"];
+        if(dict[token_address]!=null){
+            console.log("in here we flyyyyy.....")
+            dict[token_address].push(ls[i]);
+        }
+        else{
+            console.log("in here we go.....")
+            dict[token_address]=[];
+            dict[token_address].push(ls[i]);
+        }
+    }
+    var token_wise_metrics={};
+    console.log("Important metrics, tokenwise, are as follows:")
+    for(var key in dict){
+        token_wise_metrics[key]=await get_metrics(dict[key]);
+        console.log(key,token_wise_metrics[key]);
+    }
+    token_wise_metrics["overall_metrics"]=await get_metrics(ls);
+    return token_wise_metrics;
+}
+
 async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     AWS.config.update({region:'us-east-1'});
     var to_update=false;
@@ -248,7 +293,8 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         };
     }
     if(total_nft_transfers_required>30){
-        let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
+        let server_url= "http://localhost:3000/?wallet=";
+        //let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
         let part_wallet=waddress;
         let part2="&chain=";
         let part_chain=chain_name;
@@ -366,6 +412,8 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         transcations_list=transcations_list.concat(curr_txn_list);
     }
 
+    const metrics=await get_metrics_token_wise(transcations_list);
+
     const transactions={
         TableName: get_back.TableName,
         Item: {
@@ -374,13 +422,18 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
             transactions: transcations_list,
             txns_skipped : txns_skipped,
             txns_processed : txns_processed,
+            overall_metrics : metrics["overall_metrics"],
+            token_wise_metrics: metrics
         }
     }
     try{
         await dynamoDb.put(transactions).promise();
         const response_body = await dynamoDb.get(get_back).promise();
         console.log(response_body)
-        return response_body;
+        return {
+            statusCode: 200,
+            body: response_body,
+        };
     }
     catch(e){
         console.log("Error is found....");
