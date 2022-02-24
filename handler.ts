@@ -205,7 +205,43 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     }
 }
 
-async function get_metrics(ls){ //ls: list of transactions
+async function get_inventory(dict,inventory_NFTs){
+    var things=[];
+    for(var i=0;i<inventory_NFTs.length;i++){
+        var acq_price=0;
+        var NFTstring=inventory_NFTs[i]["token_address"].concat(inventory_NFTs[i]["token_id"]);
+        if(dict[NFTstring]!=null){
+            acq_price=dict[NFTstring];
+        }
+        var token_address=inventory_NFTs[i]["token_address"];
+        var token_id=inventory_NFTs[i]["token_id"];
+        var acq_timestamp=inventory_NFTs[i]["synced_at"];
+        var image_url=null;
+        if(inventory_NFTs[i]["metadata"]!=null){
+            var metadata=JSON.parse(inventory_NFTs[i]["metadata"]);
+            if(metadata!=null && metadata["image"]!=null){
+                image_url=metadata["image"];
+            }
+        }
+        var collection_name=inventory_NFTs[i]["name"];
+        var estimated_price=0;
+        var floor_price=0;
+        var obj={
+            token_address: token_address,
+            token_id: token_id,
+            acq_price: acq_price,
+            acq_timestamp: acq_timestamp,
+            image_url: image_url,
+            collection_name: collection_name,
+            estimated_price: estimated_price,
+            floor_price: floor_price
+        }
+        things.push(obj);
+    }
+    return things;
+}
+
+async function get_metrics(ls,isoverall=false,inventory_NFTs=null){ //ls: list of transactions
     var revenue=0;
     var spending=0;
     var ROI=0;
@@ -221,7 +257,7 @@ async function get_metrics(ls){ //ls: list of transactions
     var investment=0;
     var returns=0;
     var dict={};
-    for(var i=0;i<ls.length;i++){
+    for(var i=ls.length-1;i>=0;i--){
         var NFTstring=ls[i]["tokenaddress"].concat(ls[i]["tokenid"]);
         if (ls[i]["activity"]=="Bought"){
             dict[NFTstring]=ls[i]["net_value"];
@@ -231,22 +267,34 @@ async function get_metrics(ls){ //ls: list of transactions
             returns+=ls[i]["net_value"];
             delete dict[NFTstring];
         }
+        else{
+            delete dict[NFTstring];
+        }
     }
     if(investment!=0) {
         ROI=(returns-investment)*100/investment;
     }
+    var i=0;
     for(var key in dict){
+        i++;
         inventory_value+=dict[key];
     }
-    return {
+    const return_val= {
         revenue : revenue,
         spending : spending,
         ROI : ROI,
         inventory_value: inventory_value
     }
+    var ans;
+    if(isoverall==true && inventory_NFTs!=null){
+        console.log("Total NFTs in inventory from txns:",i);
+        ans=await get_inventory(dict,inventory_NFTs);
+        return [return_val,ans];
+    }
+    return return_val;
 }
 
-async function get_metrics_token_wise(ls){
+async function get_metrics_token_wise(ls,inventory_NFTs=null){
     var dict={};
     for(var i=0;i<ls.length;i++){
         var token_address=ls[i]["tokenaddress"];
@@ -264,10 +312,13 @@ async function get_metrics_token_wise(ls){
     console.log("Important metrics, tokenwise, are as follows:")
     for(var key in dict){
         token_wise_metrics[key]=await get_metrics(dict[key]);
-        console.log(key,token_wise_metrics[key]);
+        //console.log(key,token_wise_metrics[key]);
     }
-    token_wise_metrics["overall_metrics"]=await get_metrics(ls);
-    return token_wise_metrics;
+    var finale=await get_metrics(ls,true,inventory_NFTs);
+    token_wise_metrics["overall_metrics"]=finale[0];
+    var inventory_things=finale[1];
+    console.log("overall_metrics",token_wise_metrics["overall_metrics"]);
+    return [token_wise_metrics,inventory_things];
 }
 
 async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
@@ -287,15 +338,9 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     if(newResult!=null && newResult.Item!=null){
         to_update=true;
         curr_txn_list=curr_txn_list.concat(newResult.Item["transactions"]);
-        //console.log(curr_txn_list);
         console.log("exists in the table.");
-        console.log(newResult);
         txns_skipped=newResult.Item["txns_skipped"];
         txns_processed=newResult.Item["txns_processed"];
-        // return {
-        //     statusCode: 200,
-        //     body: newResult,
-        // };
     }
     var transcations_list=[];
     const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
@@ -306,12 +351,6 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
     var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
     console.log("Required total NFT transfers: ",total_nft_transfers_required);
-    if(total_nft_transfers_required<=0){
-        return {
-            statusCode: 200,
-            body: newResult,
-        };
-    }
     if(total_nft_transfers_required>30){
         //let server_url= "http://localhost:3000/?wallet=";
         let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
@@ -349,8 +388,8 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         console.log(all_transfers.length);
         n++;
     }
-    console.log(total_nft_transfers_required,all_transfers.length);
-    console.log(all_transfers[0]);
+    //console.log(total_nft_transfers_required,all_transfers.length);
+    //console.log(all_transfers[0]);
     console.log("For wallet address:",waddress," ,chain: ",chain_name,"total transactions:",all_transfers.length,"\nFollowing are the NFT Transaction values: ");
     let count=0;
     for(let i=0;i<all_transfers.length;i++){
@@ -432,7 +471,13 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
         transcations_list=transcations_list.concat(curr_txn_list);
     }
 
-    const metrics=await get_metrics_token_wise(transcations_list);
+    const q={chain:chain_name,address: waddress};
+    const inventory_NFTS=await Moralis.Web3API.account.getNFTs(q);
+    console.log("NFTs in inventory using Moralis: ",inventory_NFTS.result.length);
+
+    const metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
+    const metrics=metrics_[0];
+    const inventory_things=metrics_[1];
 
     const transactions={
         TableName: get_back.TableName,
@@ -443,13 +488,14 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
             txns_skipped : txns_skipped,
             txns_processed : txns_processed,
             overall_metrics : metrics["overall_metrics"],
-            token_wise_metrics: metrics
+            token_wise_metrics: metrics,
+            inventory_NFTS: inventory_things,
         }
     }
     try{
         await dynamoDb.put(transactions).promise();
         const response_body = await dynamoDb.get(get_back).promise();
-        console.log(response_body)
+        //console.log(response_body)
         return {
             statusCode: 200,
             body: response_body,
