@@ -205,6 +205,57 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     }
 }
 
+async function get_image_urls(things){
+    var string1="https://api.opensea.io/api/v1/assets?";
+    var ls=[];
+    var string2="";
+    for(var i=0;i<things.length;i++){
+        if(string1=="https://api.opensea.io/api/v1/assets?") string1=string1.concat("token_ids=",things[i]["token_id"]);
+        else string1=string1.concat("&token_ids=",things[i]["token_id"]);
+        string2=string2.concat("&asset_contract_addresses=",things[i]["token_address"]);
+        if((i+1)%20==0){
+            var url_complete=string1.concat(string2);
+            string1="https://api.opensea.io/api/v1/assets?";
+            string2="";
+            console.log(url_complete);
+            const ans = await fetch(url_complete, {
+                method: 'get',
+                headers: {
+                    'X-API-KEY': 'c436e16c9a3c4ee0a30534cb02a2f72c',
+                }
+            }).then(response=>{return response.json();});
+            //console.log(ans);
+            for(var j=0;j<ans["assets"].length;j++){
+                console.log(ans["assets"][j]["image_url"]);
+                ls.push(ans["assets"][j]["image_url"]);
+            }
+        }
+    }
+    if(string1!="https://api.opensea.io/api/v1/assets?"){
+        var url_complete=string1.concat(string2);
+        string1="https://api.opensea.io/api/v1/assets?";
+        string2="";
+        console.log(url_complete);
+        const ans = await fetch(url_complete, {
+            method: 'get',
+            headers: {
+                'X-API-KEY': 'c436e16c9a3c4ee0a30534cb02a2f72c',
+            }
+        }).then(response=>{return response.json();});
+        console.log(ans["assets"].length);
+        for(var j=0;j<ans["assets"].length;j++){
+            console.log(ans["assets"][j]["image_url"]);
+            ls.push(ans["assets"][j]["image_url"]);
+        }
+    }
+    console.log(things.length,ls.length);
+    for(var i=0;i<things.length;i++){
+        things[i]["image_url"]=ls[i];
+        console.log(ls[i]);
+    }
+    return things;
+}
+
 async function get_inventory(dict,inventory_NFTs){
     var things=[];
     for(var i=0;i<inventory_NFTs.length;i++){
@@ -217,12 +268,6 @@ async function get_inventory(dict,inventory_NFTs){
         var token_id=inventory_NFTs[i]["token_id"];
         var acq_timestamp=inventory_NFTs[i]["synced_at"];
         var image_url=null;
-        if(inventory_NFTs[i]["metadata"]!=null){
-            var metadata=JSON.parse(inventory_NFTs[i]["metadata"]);
-            if(metadata!=null && metadata["image"]!=null){
-                image_url=metadata["image"];
-            }
-        }
         var collection_name=inventory_NFTs[i]["name"];
         var estimated_price=0;
         var floor_price=0;
@@ -238,6 +283,7 @@ async function get_inventory(dict,inventory_NFTs){
         }
         things.push(obj);
     }
+    things=await get_image_urls(things);
     return things;
 }
 
@@ -474,7 +520,6 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     const q={chain:chain_name,address: waddress};
     const inventory_NFTS=await Moralis.Web3API.account.getNFTs(q);
     console.log("NFTs in inventory using Moralis: ",inventory_NFTS.result.length);
-
     const metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
     const metrics=metrics_[0];
     const inventory_things=metrics_[1];
