@@ -382,7 +382,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
     var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
     var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
     console.log("Required total NFT transfers: ",total_nft_transfers_required);
-    if(total_nft_transfers_required>30){
+    if(total_nft_transfers_required>20){
         //let server_url= "http://localhost:3000/?wallet=";
         let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
         let part_wallet=waddress;
