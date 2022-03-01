@@ -508,7 +508,9 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
     const metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
     const metrics=metrics_[0];
     const inventory_things=metrics_[1];
-    const total_pages= Math.floor(transcations_list.length/50)+1;
+    var total_pages;
+    if(transcations_list.length%50==0) total_pages= Math.floor(transcations_list.length/50);
+    else total_pages= Math.floor(transcations_list.length/50)+1;
     const transactions={
         TableName: get_back.TableName,
         Item: {
