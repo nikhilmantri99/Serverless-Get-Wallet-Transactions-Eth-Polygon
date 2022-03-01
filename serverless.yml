@@ -1,7 +1,7 @@
 # NOTE: update this with your service name
 service: serverless-get-txns-nikhil-please
 
-# Create an optimized package for our functions 
+# Create an optimized package for our functions
 package:
   individually: true
 
@@ -39,7 +39,7 @@ provider:
   #environment:
   #  SAMPLE_ENV_VAR: ${env:SAMPLE_ENV_VAR}
 
-  
+
 # Both GET and POST method is used to transfer data from client to server in HTTP protocol but
 # Main difference between POST and GET method is that GET carries request parameter appended
 # in URL string while POST carries request parameter in message body which makes it more secure
@@ -60,6 +60,9 @@ functions:
                 Required: true
                 Caching: false
             - method.request.querystring.userid:
+                Required: false
+                Caching: false
+            - method.request.querystring.page_number:
                 Required: false
                 Caching: false
           # authorizer: aws_iam

@@ -1,13 +1,8 @@
-// export const hello: APIGatewayProxyHandler = async (event, context) => {
-//   return {
-//     statusCode: 200,
-//     body: JSON.stringify(1,null,2),
-//   };
-// };
-//import { APIGatewayProxyHandler } from "aws-lambda";
 import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+AWS.config.update({region:'us-east-1'});
 
 async function find_conversion_rate(ticker1,ticker2,timeline){ // gets price of ticker 1 in terms of ticker 2
     if((ticker1=="ETH" && ticker2=="WETH") || (ticker1=="WETH" && ticker2=="ETH") || ticker1==ticker2){
@@ -207,16 +202,22 @@ async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name){
 
 async function get_image_urls(things){
     var string1="https://api.opensea.io/api/v1/assets?";
-    var ls=[];
-    var string2="";
     for(var i=0;i<things.length;i++){
-        if(string1=="https://api.opensea.io/api/v1/assets?") string1=string1.concat("token_ids=",things[i]["token_id"]);
-        else string1=string1.concat("&token_ids=",things[i]["token_id"]);
-        string2=string2.concat("&asset_contract_addresses=",things[i]["token_address"]);
-        if((i+1)%20==0){
-            var url_complete=string1.concat(string2);
+        const get_back = {
+            TableName: "NFT_image_urls",
+            Key: {
+                tokenaddress: things[i]["token_address"],
+                tokenid: things[i]["token_id"],        },
+        };
+        const response_body = await dynamoDb.get(get_back).promise();
+        if(response_body!=null && response_body.Item!=null){
+            console.log("Link present in table.");
+            things[i]["image_url"]=response_body.Item["image_url"];
+            continue;
+        }
+        else{
+            var url_complete=string1.concat("token_ids=",things[i]["token_id"],"&asset_contract_addresses=",things[i]["token_address"]);
             string1="https://api.opensea.io/api/v1/assets?";
-            string2="";
             console.log(url_complete);
             const ans = await fetch(url_complete, {
                 method: 'get',
@@ -225,38 +226,24 @@ async function get_image_urls(things){
                 }
             }).then(response=>{return response.json();});
             //console.log(ans);
-            for(var j=0;j<ans["assets"].length;j++){
-                console.log(ans["assets"][j]["image_url"]);
-                ls.push(ans["assets"][j]["image_url"]);
+            if(ans!=null && ans["assets"]!=null && ans["assets"].length>0){
+                things[i]["image_url"]=ans["assets"][0]["image_url"];
+                const put_in={
+                    TableName: "NFT_image_urls",
+                    Item:{
+                        tokenaddress : things[i]["token_address"],
+                        tokenid: things[i]["token_id"],
+                        image_url: things[i]["image_url"]
+                    }
+                }
+                await dynamoDb.put(put_in).promise();
             }
         }
-    }
-    if(string1!="https://api.opensea.io/api/v1/assets?"){
-        var url_complete=string1.concat(string2);
-        string1="https://api.opensea.io/api/v1/assets?";
-        string2="";
-        console.log(url_complete);
-        const ans = await fetch(url_complete, {
-            method: 'get',
-            headers: {
-                'X-API-KEY': 'c436e16c9a3c4ee0a30534cb02a2f72c',
-            }
-        }).then(response=>{return response.json();});
-        console.log(ans["assets"].length);
-        for(var j=0;j<ans["assets"].length;j++){
-            console.log(ans["assets"][j]["image_url"]);
-            ls.push(ans["assets"][j]["image_url"]);
-        }
-    }
-    console.log(things.length,ls.length);
-    for(var i=0;i<things.length;i++){
-        things[i]["image_url"]=ls[i];
-        console.log(ls[i]);
     }
     return things;
 }
 
-async function get_inventory(dict,inventory_NFTs){
+async function get_inventory(dict,inventory_NFTs,current_inventory_list=null){
     var things=[];
     for(var i=0;i<inventory_NFTs.length;i++){
         var acq_price=0;
@@ -287,7 +274,7 @@ async function get_inventory(dict,inventory_NFTs){
     return things;
 }
 
-async function get_metrics(ls,isoverall=false,inventory_NFTs=null){ //ls: list of transactions
+async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current_inventory_list=null){ //ls: list of transactions
     var revenue=0;
     var spending=0;
     var ROI=0;
@@ -334,13 +321,13 @@ async function get_metrics(ls,isoverall=false,inventory_NFTs=null){ //ls: list o
     var ans;
     if(isoverall==true && inventory_NFTs!=null){
         console.log("Total NFTs in inventory from txns:",i);
-        ans=await get_inventory(dict,inventory_NFTs);
+        ans=await get_inventory(dict,inventory_NFTs,current_inventory_list);
         return [return_val,ans];
     }
     return return_val;
 }
 
-async function get_metrics_token_wise(ls,inventory_NFTs=null){
+async function get_metrics_token_wise(ls,inventory_NFTs=null,curr_inventory_list=null){
     var dict={};
     for(var i=0;i<ls.length;i++){
         var token_address=ls[i]["tokenaddress"];
@@ -360,20 +347,18 @@ async function get_metrics_token_wise(ls,inventory_NFTs=null){
         token_wise_metrics[key]=await get_metrics(dict[key]);
         //console.log(key,token_wise_metrics[key]);
     }
-    var finale=await get_metrics(ls,true,inventory_NFTs);
+    var finale=await get_metrics(ls,true,inventory_NFTs,curr_inventory_list);
     token_wise_metrics["overall_metrics"]=finale[0];
     var inventory_things=finale[1];
     console.log("overall_metrics",token_wise_metrics["overall_metrics"]);
     return [token_wise_metrics,inventory_things];
 }
 
-async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
-    AWS.config.update({region:'us-east-1'});
+async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
     var to_update=false;
     var curr_txn_list=[];
     var txns_skipped=0;
     var txns_processed=0;
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
     const get_back = {
         TableName: "lambda-wallet-chain-transactions",
         Key: {
@@ -523,13 +508,14 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     const metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
     const metrics=metrics_[0];
     const inventory_things=metrics_[1];
-
+    const total_pages= Math.floor(transcations_list.length/50)+1;
     const transactions={
         TableName: get_back.TableName,
         Item: {
             walletId :get_back.Key.walletId,
             chainName : get_back.Key.chainName,
             transactions: transcations_list,
+            total_pages: total_pages,
             txns_skipped : txns_skipped,
             txns_processed : txns_processed,
             overall_metrics : metrics["overall_metrics"],
@@ -540,7 +526,9 @@ async function return_NFT_transactions(userid,chain_name,waddress,max_num=100){
     try{
         await dynamoDb.put(transactions).promise();
         const response_body = await dynamoDb.get(get_back).promise();
-        //console.log(response_body)
+        var total_len=response_body.Item["transactions"].length;
+        if(pg_num>=total_pages) response_body.Item["transactions"]=response_body.Item["transactions"].slice((total_pages-1)*50,total_len);
+        else response_body.Item["transactions"]=response_body.Item["transactions"].slice((pg_num-1)*50,pg_num*50);
         return {
             statusCode: 200,
             body: response_body,
@@ -576,7 +564,14 @@ export const hello = async (event, context)=>{
     if(chain_name==null){
         chain_name="eth";
     }
-    const ans= await return_NFT_transactions(userId,chain_name,wallet);
+    let pg_num=event["queryStringParameters"]['page_number'];
+    if(pg_num==null){
+        pg_num=1;
+    }
+    else{
+        pg_num=parseInt(pg_num);
+    }
+    const ans= await return_NFT_transactions(userId,chain_name,wallet,pg_num);
     var sc=200;
     if(ans["statusCode"]!=null){
         sc=ans["statusCode"];
