@@ -243,7 +243,7 @@ async function get_image_urls(things){
     return things;
 }
 
-async function get_inventory(dict,inventory_NFTs,current_inventory_list=null){
+async function get_inventory(dict,inventory_NFTs,current_inventory_list=null,ispolygon=false){
     var things=[];
     for(var i=0;i<inventory_NFTs.length;i++){
         var acq_price=0;
@@ -255,6 +255,13 @@ async function get_inventory(dict,inventory_NFTs,current_inventory_list=null){
         var token_id=inventory_NFTs[i]["token_id"];
         var acq_timestamp=inventory_NFTs[i]["synced_at"];
         var image_url=null;
+        if(ispolygon==true){
+            const obj=JSON.parse(inventory_NFTs[i]["metadata"]);
+            if(obj!=null && obj["image"]!=null){
+                image_url=obj["image"];
+                console.log(image_url);
+            }
+        }
         var collection_name=inventory_NFTs[i]["name"];
         var estimated_price=0;
         var floor_price=0;
@@ -270,11 +277,11 @@ async function get_inventory(dict,inventory_NFTs,current_inventory_list=null){
         }
         things.push(obj);
     }
-    things=await get_image_urls(things);
+    if(ispolygon==false) things=await get_image_urls(things);
     return things;
 }
 
-async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current_inventory_list=null){ //ls: list of transactions
+async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current_inventory_list=null,ispolygon=false){ //ls: list of transactions
     var revenue=0;
     var spending=0;
     var ROI=0;
@@ -321,13 +328,13 @@ async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current_invent
     var ans;
     if(isoverall==true && inventory_NFTs!=null){
         console.log("Total NFTs in inventory from txns:",i);
-        ans=await get_inventory(dict,inventory_NFTs,current_inventory_list);
+        ans=await get_inventory(dict,inventory_NFTs,current_inventory_list,ispolygon);
         return [return_val,ans];
     }
     return return_val;
 }
 
-async function get_metrics_token_wise(ls,inventory_NFTs=null,curr_inventory_list=null){
+async function get_metrics_token_wise(ls,inventory_NFTs=null,curr_inventory_list=null,ispolygon=false){
     var dict={};
     for(var i=0;i<ls.length;i++){
         var token_address=ls[i]["tokenaddress"];
@@ -347,7 +354,7 @@ async function get_metrics_token_wise(ls,inventory_NFTs=null,curr_inventory_list
         token_wise_metrics[key]=await get_metrics(dict[key]);
         //console.log(key,token_wise_metrics[key]);
     }
-    var finale=await get_metrics(ls,true,inventory_NFTs,curr_inventory_list);
+    var finale=await get_metrics(ls,true,inventory_NFTs,curr_inventory_list,ispolygon);
     token_wise_metrics["overall_metrics"]=finale[0];
     var inventory_things=finale[1];
     console.log("overall_metrics",token_wise_metrics["overall_metrics"]);
@@ -504,8 +511,15 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
 
     const q={chain:chain_name,address: waddress};
     const inventory_NFTS=await Moralis.Web3API.account.getNFTs(q);
-    console.log("NFTs in inventory using Moralis: ",inventory_NFTS.result.length);
-    const metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
+    console.log(inventory_NFTS.result);
+    //console.log("NFTs in inventory using Moralis: ",inventory_NFTS.result.length);
+    var metrics_;
+    if(chain_name=="polygon"){
+        metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result,null,true);
+    }
+    else{
+        metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
+    }
     const metrics=metrics_[0];
     const inventory_things=metrics_[1];
     var total_pages;
