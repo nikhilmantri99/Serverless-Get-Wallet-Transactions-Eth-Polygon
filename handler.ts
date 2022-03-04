@@ -43,9 +43,11 @@ async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
     const part1=e1.concat(chain_num,e2);
     const part2=txn_hash;
     const part3='/?&key=';
-    const part4='ckey_c4b9331412914d59845089270d';
+    const part4='ckey_c4b9331412914d59845089270d0';
     const url_complete=part1.concat(part2,part3,part4);
     const ans = await fetch(url_complete).then(response=>{return response.json();});
+    console.log("Covalent value:")
+    console.log(ans);
     let mainmoney=0,comission=0,i=0;
     let rate_matic2eth=1;
     let gas_price=0;
@@ -389,7 +391,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
     var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
     var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
     console.log("Required total NFT transfers: ",total_nft_transfers_required);
-    if(total_nft_transfers_required>20){
+    if(total_nft_transfers_required>100){
         //let server_url= "http://localhost:3000/?wallet=";
         let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
         let part_wallet=waddress;
