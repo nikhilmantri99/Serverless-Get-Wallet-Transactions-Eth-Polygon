@@ -527,6 +527,10 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
     var total_pages;
     if(transcations_list.length%50==0) total_pages= Math.floor(transcations_list.length/50);
     else total_pages= Math.floor(transcations_list.length/50)+1;
+    var curr_page=pg_num;
+    if(curr_page>total_pages){
+        curr_page=total_pages;
+    }
     const transactions={
         TableName: get_back.TableName,
         Item: {
@@ -534,6 +538,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
             chainName : get_back.Key.chainName,
             transactions: transcations_list,
             total_pages: total_pages,
+            curr_page: curr_page,
             txns_skipped : txns_skipped,
             txns_processed : txns_processed,
             overall_metrics : metrics["overall_metrics"],
