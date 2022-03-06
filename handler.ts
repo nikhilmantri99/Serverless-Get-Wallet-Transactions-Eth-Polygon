@@ -405,6 +405,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
             const ans = await fetch(server_url).then(response=>{return response.json();});
             return {
                 statusCode : 200,
+                status : "Processing",
                 body: JSON.stringify(ans,null,2),
             }
         }
@@ -412,6 +413,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
             return {
                 statusCode : 500,
                 body: JSON.stringify(e),
+                status: "ERROR",
                 solution: "Try again after sometime!",
             }
         }
@@ -554,6 +556,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
         else response_body.Item["transactions"]=response_body.Item["transactions"].slice((pg_num-1)*50,pg_num*50);
         return {
             statusCode: 200,
+            status: "Success",
             body: response_body,
         };
     }
@@ -562,6 +565,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,pg_num=1){
         console.log(e);
         return {
             statusCode: 500,
+            status: "ERROR",
             body: JSON.stringify({ error: e.message }),
         };
     }
@@ -596,8 +600,12 @@ export const hello = async (event, context)=>{
     }
     const ans= await return_NFT_transactions(userId,chain_name,wallet,pg_num);
     var sc=200;
+    var status="ERROR";
     if(ans["statusCode"]!=null){
         sc=ans["statusCode"];
+    }
+    if(ans["status"]!=null){
+        status=ans["status"];
     }
     const response = {
         statusCode: sc,
