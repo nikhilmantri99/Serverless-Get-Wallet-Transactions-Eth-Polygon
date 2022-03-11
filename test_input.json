@@ -1,6 +1,6 @@
 {
     "queryStringParameters":{
-        "wallet":"0xd72a3a4df69853598a70e67889d48aad2c6cd353",
+        "wallet":"0x71be99c9b5362ad07f7f231bc7a547f4119c6073",
         "userid":"1",
         "chain":"eth",
         "page_number": "1"
