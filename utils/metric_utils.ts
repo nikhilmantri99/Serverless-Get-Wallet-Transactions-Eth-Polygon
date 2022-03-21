@@ -4,7 +4,8 @@ import AWS from "aws-sdk";
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 AWS.config.update({region:'us-east-1'});
 import {get_inventory} from './inventory_utils';
-export async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current_inventory_list=null,ispolygon=false){ //ls: list of transactions
+
+export async function get_metrics(ls,token_address,isoverall=false,inventory_NFTs=null,current_inventory_list=null,ispolygon=false){ //ls: list of transactions
     var revenue=0;
     var spending=0;
     var ROI=0;
@@ -43,6 +44,7 @@ export async function get_metrics(ls,isoverall=false,inventory_NFTs=null,current
         inventory_value+=dict[key];
     }
     const return_val= {
+        token_address: token_address,
         revenue : revenue,
         spending : spending,
         ROI : ROI,
@@ -71,15 +73,15 @@ export async function get_metrics_token_wise(ls,inventory_NFTs=null,curr_invento
             dict[token_address].push(ls[i]);
         }
     }
-    var token_wise_metrics={};
+    var token_wise_metrics=[];
     console.log("Important metrics, tokenwise, are as follows:")
     for(var key in dict){
-        token_wise_metrics[key]=await get_metrics(dict[key]);
-        //console.log(key,token_wise_metrics[key]);
+        var ans =await get_metrics(dict[key],key);
+        token_wise_metrics.push(ans);
     }
-    var finale=await get_metrics(ls,true,inventory_NFTs,curr_inventory_list,ispolygon);
-    token_wise_metrics["overall_metrics"]=finale[0];
+    var finale=await get_metrics(ls,"overall_metrics",true,inventory_NFTs,curr_inventory_list,ispolygon);
+    var overall_metrics=finale[0];
     var inventory_things=finale[1];
-    console.log("overall_metrics",token_wise_metrics["overall_metrics"]);
-    return [token_wise_metrics,inventory_things];
+    console.log("overall_metrics",overall_metrics);
+    return [overall_metrics,token_wise_metrics,inventory_things];
 }

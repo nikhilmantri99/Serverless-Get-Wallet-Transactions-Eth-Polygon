@@ -62,7 +62,13 @@ functions:
             - method.request.querystring.userid:
                 Required: false
                 Caching: false
-            - method.request.querystring.page_number:
+            - method.request.querystring.txn_page:
+                Required: false
+                Caching: false
+            - method.request.querystring.inventory_page:
+                Required: false
+                Caching: false
+            - method.request.querystring.token_page:
                 Required: false
                 Caching: false
           # authorizer: aws_iam
