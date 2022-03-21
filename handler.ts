@@ -6,7 +6,7 @@ AWS.config.update({region:'us-east-1'});
 import {fetch_from_url,find_conversion_rate,covalent_logs,etherscan_logs,polygonscan_logs,value_from_hash,transaction_row} from './utils/variouslogs';
 import {get_image_urls,get_inventory} from './utils/inventory_utils';
 import {get_metrics_token_wise,get_metrics} from './utils/metric_utils';
-import { utils } from "@project-serum/anchor";
+//import { utils } from "@project-serum/anchor";
 import {get_total_pages,put_txns,get_all_txns,get_page_txns,put_inventory,get_all_inventory,get_page_inventory,
         put_tokenwisemetrics,get_all_tokenwisemetrics,get_page_tokenwisemetrics,put_overall_metrics,get_overall_metrics} from "./utils/dynamodb_utils";
 
@@ -33,7 +33,7 @@ async function return_state(waddress,chain_name,txn_page=1,inventory_page=1,toke
 }
 
 async function call_server(waddress,chain_name,userid,txn_page=1,inventory_page=1,token_page=1,local_server=false){
-    let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
+    let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:80/?wallet=";
     if(local_server==true){
         server_url="http://localhost:3000/?wallet=";
     }
@@ -94,7 +94,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,txn_page=1,inv
     console.log("Required total NFT transfers: ",total_nft_transfers_required);
 
     if(total_nft_transfers_required==0){
-        await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,true);
+        //await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,true);
         var body= await return_state(waddress,chain_name,txn_page,inventory_page,tokenwisemetric_page);
         return {
             statusCode: 200,
@@ -110,7 +110,7 @@ async function return_NFT_transactions(userid,chain_name,waddress,txn_page=1,inv
         }
     }
     if(total_nft_transfers_required>25){
-        var ret=await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,true);
+        var ret=await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,false);
         return ret;
     }
 
