@@ -2,7 +2,10 @@ import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
-AWS.config.update({region:'us-east-1'});
+AWS.config.update({
+    accessKeyId:"AKIA2F4FHJNULPGDQMV5",
+    secretAccessKey:"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",
+    region:'us-east-1'});
 
 export async function fetch_from_url(url_,s=2){
     var response = await fetch(url_);
