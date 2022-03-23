@@ -2,10 +2,7 @@ import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
-AWS.config.update({
-    accessKeyId:"AKIA2F4FHJNULPGDQMV5",
-    secretAccessKey:"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",
-    region:'us-east-1'});
+AWS.config.update({region:'us-east-1'});
 import {get_inventory} from './inventory_utils';
 
 export async function get_metrics(ls,token_address,isoverall=false,inventory_NFTs=null,current_inventory_list=null,ispolygon=false){ //ls: list of transactions
