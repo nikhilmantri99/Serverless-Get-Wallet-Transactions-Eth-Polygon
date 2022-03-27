@@ -1,8 +1,8 @@
 import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
 AWS.config.update({region:'us-east-1'});
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 export async function get_image_urls(things){
     var string1="https://api.opensea.io/api/v1/assets?";

@@ -1,8 +1,9 @@
 import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
 AWS.config.update({region:'us-east-1'});
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
 import {return_NFT_transactions,return_state,call_server, fetch_from_url,find_conversion_rate,covalent_logs,etherscan_logs,polygonscan_logs,value_from_hash,transaction_row} from './utils/variouslogs';
 import {get_image_urls,get_inventory} from './utils/inventory_utils';
 import {get_metrics_token_wise,get_metrics} from './utils/metric_utils';
