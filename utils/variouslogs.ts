@@ -370,6 +370,8 @@ export async function return_state(waddress,chain_name,txn_page=1,inventory_page
     return obj;
 }
 
+
+
 export async function return_NFT_transactions(userid,chain_name,waddress,txn_page=1,inventory_page=1,tokenwisemetric_page=1){
     var to_update=false;
     var curr_txn_list=[];
@@ -392,8 +394,28 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
     console.log("fetching...");
     var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
     var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
-
     console.log("Required total NFT transfers: ",total_nft_transfers_required);
+
+    if(total_nft_transfers_required==0){
+        //await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,true);
+        var body= await return_state(waddress,chain_name,txn_page,inventory_page,tokenwisemetric_page);
+        return {
+            statusCode: 200,
+            status: "Success",
+            body: body,
+        };
+    }
+    if(total_nft_transfers_required>1000){
+        return {
+            statusCode : 200,
+            status : "Unsupported",
+            body: "Sorry, we do not process wallets with more than 1000 txns currently!",
+        }
+    }
+    if(total_nft_transfers_required>25){
+        var ret=await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,false);
+        return ret;
+    }
 
     var n=0;
     while(all_transfers.length<total_nft_transfers_required){
@@ -407,8 +429,7 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
         console.log(all_transfers.length);
         n++;
     }
-    //console.log(total_nft_transfers_required,all_transfers.length);
-    //console.log(all_transfers[0]);
+
     console.log("For wallet address:",waddress," ,chain: ",chain_name,"total transactions:",all_transfers.length,"\nFollowing are the NFT Transaction values: ");
     let count=0;
     for(let i=0;i<all_transfers.length;i++){
@@ -424,10 +445,10 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
     if(curr_txn_list.length!=0){
         transcations_list=transcations_list.concat(curr_txn_list);
     }
+
     await put_txns(waddress,chain_name,transcations_list,txns_processed,txns_skipped);
     const q={chain:chain_name,address: waddress};
     const inventory_NFTS=await Moralis.Web3API.account.getNFTs(q);
-    console.log("NFTs in inventory using Moralis: ",inventory_NFTS.result.length);
     var metrics_;
     if(chain_name=="polygon"){
         metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result,null,true);
@@ -435,6 +456,7 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
     else{
         metrics_=await get_metrics_token_wise(transcations_list,inventory_NFTS.result);
     }
+
     var overall_metrics=metrics_[0];
     await put_overall_metrics(waddress,chain_name,overall_metrics);
 
