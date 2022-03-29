@@ -8,6 +8,10 @@ import {get_total_pages,put_txns,get_all_txns,get_page_txns,put_inventory,get_al
 import {get_image_urls,get_inventory} from './inventory_utils';
 import {get_metrics_token_wise,get_metrics} from './metric_utils';
 
+const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
+const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
+Moralis.start({ serverUrl, appId });
+
 
 export async function fetch_from_url(url_,s=2){
     var response = await fetch(url_);
@@ -313,7 +317,7 @@ export async function transaction_row(txn,waddress,chain_name,userid,txns_proces
 }
 
 export async function call_server(waddress,chain_name,userid,txn_page=1,inventory_page=1,token_page=1,local_server=false){
-    let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:80/?wallet=";
+    let server_url= "http://ec2-34-226-246-235.compute-1.amazonaws.com:3000/?wallet=";
     if(local_server==true){
         server_url="http://localhost:3000/?wallet=";
     }
@@ -371,6 +375,18 @@ export async function return_state(waddress,chain_name,txn_page=1,inventory_page
     return obj;
 }
 
+export async function get_size(waddress,chain_name){
+    var txns_skipped=0;
+    var txns_processed=0;
+    const newResult = await get_page_txns(waddress,chain_name,1);
+    if(newResult[0]!=null){
+        txns_processed=newResult[4];
+        txns_skipped=newResult[5];
+    }
+    var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
+    var total_nft_transfers_required=transfersNFT.total-(txns_processed+txns_skipped);
+    return total_nft_transfers_required;
+}
 
 
 export async function return_NFT_transactions(userid,chain_name,waddress,txn_page=1,inventory_page=1,tokenwisemetric_page=1){
@@ -388,9 +404,6 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
         txns_skipped=newResult[5];
     }
     var transcations_list=[];
-    const serverUrl = "https://kpvcez1i2tg3.usemoralis.com:2053/server";
-    const appId = "viZCI1CZimCj22ZTyFuXudn3g0wUnG2pELzPvdg6";
-    Moralis.start({ serverUrl, appId });
     var all_transfers=[];
     console.log("fetching...");
     var transfersNFT = await Moralis.Web3API.account.getNFTTransfers({ chain: chain_name, address: waddress, limit: 1});
