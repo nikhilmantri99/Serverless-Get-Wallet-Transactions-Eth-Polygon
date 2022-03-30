@@ -419,11 +419,11 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
             body: body,
         };
     }
-    if(total_nft_transfers_required>1000){
+    if(total_nft_transfers_required>5000){
         return {
             statusCode : 200,
             status : "Unsupported",
-            body: "Sorry, we do not process wallets with more than 1000 txns currently!",
+            body: "Sorry, we do not process wallets with more than 5000 txns currently!",
         }
     }
     if(total_nft_transfers_required>25){
