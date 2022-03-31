@@ -13,7 +13,7 @@ import {get_total_pages,put_txns,get_all_txns,get_page_txns,put_inventory,get_al
 
 //export async function handler(event, context){
 export const hello = async (event, context)=>{
-    const wallet = event["queryStringParameters"]['wallet'];
+    var wallet = event["queryStringParameters"]['wallet'];
     //const wallet = "0x4958cde93218e9bbeaa922cd9f8b3feec1342772";
     if(wallet==null){
         return {
@@ -21,6 +21,7 @@ export const hello = async (event, context)=>{
             body: JSON.stringify({ error: "No wallet provided." }),
         };
     }
+    wallet=String(wallet).toLowerCase();
     let userId = event["queryStringParameters"]['userid'];
     //let userId = "1";
     if(userId==null){

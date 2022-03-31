@@ -23,12 +23,21 @@ export async function get_image_urls(things){
             var url_complete=string1.concat("token_ids=",things[i]["token_id"],"&asset_contract_addresses=",things[i]["token_address"]);
             string1="https://api.opensea.io/api/v1/assets?";
             console.log(url_complete);
-            const ans = await fetch(url_complete, {
-                method: 'get',
-                headers: {
-                    'X-API-KEY': 'c436e16c9a3c4ee0a30534cb02a2f72c',
-                }
-            }).then(response=>{return response.json();});
+            var ans =null;
+            try{
+                ans = await fetch(url_complete, {
+                    method: 'get',
+                    headers: {
+                        'X-API-KEY': 'c436e16c9a3c4ee0a30534cb02a2f72c',
+                    }
+                }).then(response=>{return response.json();});
+            }
+            catch(e){
+                console.log(e);
+                console.log("Hence setting this link value to null");
+                ans=null;
+                continue;
+            }
             //console.log(ans);
             if(ans!=null && ans["assets"]!=null && ans["assets"].length>0){
                 things[i]["image_url"]=ans["assets"][0]["image_url"];
