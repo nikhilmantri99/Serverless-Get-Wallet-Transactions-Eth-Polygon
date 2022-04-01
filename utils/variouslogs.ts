@@ -89,7 +89,7 @@ export async function covalent_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name){
                 && ans["data"]["items"][0]["log_events"][i]["sender_contract_decimals"]==0
                 && ans["data"]["items"][0]["log_events"][i]["decoded"]["name"]=="Transfer"
                 && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"]!=null
-                && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"][1]["value"]==NFTto){
+                && ans["data"]["items"][0]["log_events"][i]["decoded"]["params"][0]["value"]==NFTfrom){
                     nft_count++;
                 }
         }
@@ -364,12 +364,15 @@ export async function return_state(waddress,chain_name,txn_page=1,inventory_page
         overall_metrics: overall_metrics,
         transactions: txn_ls[0],
         total_txns_page: txn_ls[1],
+        total_txns_number: txn_ls[2],
         curr_txns_page:txn_ls[3],
         inventory: inv_ls[0],
         total_inventory_pages: inv_ls[1],
+        total_inventory_number: inv_ls[2],
         curr_inventory_page: inv_ls[3],
         tokenwise_metrics: tokenwisemetric_ls[0],
         total_tokenwisemetric_pages: tokenwisemetric_ls[1],
+        total_tokenwisemetric_number: tokenwisemetric_ls[2],
         current_tokenwisemetric_page: tokenwisemetric_ls[3],
     }
     return obj;
