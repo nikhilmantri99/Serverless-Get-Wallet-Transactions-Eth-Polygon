@@ -155,7 +155,7 @@ export async function etherscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name,
     const part4='3K72Z6I2T121TAQZ9DY34EF6F9NADKAH87';
     const url_complete=part1.concat(part2,part3,part4);
     var ans = await fetch_from_url(url_complete,5);
-    if (ans["result"]=="Max rate limit exceeded"){
+    if (ans==null || ans["result"]=="Max rate limit exceeded"){
         await new Promise(resolve => setTimeout(resolve, 5*1000)); // 3 sec
         ans = await fetch_from_url(url_complete,5);
     }
@@ -198,7 +198,7 @@ export async function polygonscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_nam
     const url_complete=part1.concat(part2,part3,part4);
     //console.log(url_complete);
     var ans = await fetch_from_url(url_complete,5);
-    if (ans["result"]=="Max rate limit exceeded"){
+    if (ans==null || ans["result"]=="Max rate limit exceeded"){
         await new Promise(resolve => setTimeout(resolve, 5*1000)); // 3 sec
         ans = await fetch_from_url(url_complete,5);
     }

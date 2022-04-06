@@ -1,6 +1,7 @@
 import Moralis from "moralis/node.js";
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
+import ObjectsToCsv from "objects-to-csv";
 AWS.config.update({region:'us-east-1'});
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
@@ -130,6 +131,17 @@ export async function get_all_txns(waddress,chain_name){
     }
     var tlist = await get_list_from_table_with_pagination(table_name,waddress);
     return tlist;
+}
+
+export async function get_all_txns_in_csv(waddress,chain_name){
+    var arr=await get_all_txns(waddress,chain_name);
+    const csv = new ObjectsToCsv(arr);
+    // Save to file:
+    var start="./";
+    var fname=start.concat(chain_name,waddress,'.csv');
+    // console.log(csv);
+    console.log(await csv.toString());
+    return fname;
 }
 
 export async function get_page_txns(waddress,chain_name,pg_num=1){

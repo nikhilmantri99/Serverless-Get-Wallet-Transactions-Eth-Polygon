@@ -1,8 +1,8 @@
 {
     "queryStringParameters":{
-        "wallet":"0x14FAF866d178182328ea5b48DD350f2Df54C6fDd",
+        "wallet":"0x8a90f7679506b79a9175bcf6cb755ecba8e905f0",
         "userid":"1",
-        "chain":"polygon",
+        "chain":"eth",
         "page_number": "1"
     }
 }
