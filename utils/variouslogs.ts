@@ -155,7 +155,10 @@ export async function etherscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_name,
     const part4='3K72Z6I2T121TAQZ9DY34EF6F9NADKAH87';
     const url_complete=part1.concat(part2,part3,part4);
     var ans = await fetch_from_url(url_complete,5);
-    if (ans==null || ans["result"]=="Max rate limit exceeded"){
+    var trials=0;
+    while ((ans==null || ans["result"]=="Max rate limit exceeded") && trials<10){
+        trials++;
+        console.log("Etherscan returned Null. Retrying..");
         await new Promise(resolve => setTimeout(resolve, 5*1000)); // 3 sec
         ans = await fetch_from_url(url_complete,5);
     }
@@ -198,7 +201,10 @@ export async function polygonscan_logs(txn_hash,waddress,NFTfrom,NFTto,chain_nam
     const url_complete=part1.concat(part2,part3,part4);
     //console.log(url_complete);
     var ans = await fetch_from_url(url_complete,5);
-    if (ans==null || ans["result"]=="Max rate limit exceeded"){
+    var trials=0;
+    while ((ans==null || ans["result"]=="Max rate limit exceeded") && trials<10){
+        trials++;
+        console.log("Polygonscan returned Null. Retrying..");
         await new Promise(resolve => setTimeout(resolve, 5*1000)); // 3 sec
         ans = await fetch_from_url(url_complete,5);
     }
@@ -251,57 +257,68 @@ export async function value_from_hash(txn_hash,waddress,NFTfrom,NFTto,chain_name
     }
 }
 
-export async function transaction_row(txn,waddress,chain_name,userid,txns_processed,txns_skipped,count,count_dict){
+export async function transaction_row(txn,waddress,chain_name,userid,txns_processed,txns_skipped,count,count_dict,txn_storage_dict){
     //console.log("Hello");
     var value_from_moralis=parseInt(txn["value"])/(10**18);
-    if(value_from_moralis==null || isNaN(value_from_moralis)){
-        value_from_moralis=0;
-    }
-    //console.log(transfersNFT.result[i].transaction_hash);
     var temp_=txn["transaction_hash"].concat(txn["from_address"],txn["to_address"]);
     var num_nft_transfers=count_dict[temp_];
-    const value_from_hash_scans_=await value_from_hash(txn["transaction_hash"],waddress,
-    txn["from_address"],txn["to_address"],chain_name,num_nft_transfers);
-    //const value_from_hash_scans=null;
-    const value_from_hash_scans=value_from_hash_scans_[0];
-    let gas_price=value_from_hash_scans_[1];
-    let nft_count=value_from_hash_scans_[2];
-    if(gas_price==null) gas_price=0;
-    if(value_from_hash_scans==-1){ //here we maybe skipping some transactions
-        txns_skipped++;
-        return [null,txns_processed,txns_skipped,count];
-    }
-    txns_processed++;
-    //console.log(value_from_moralis,value_from_hash_scans);
-    let final_value;
-    if(value_from_hash_scans!=null){
-        final_value=value_from_hash_scans;
-        if(final_value[0]<0){
-            let ticker1="ETH";
-            if(chain_name=="polygon"){
-                ticker1="MATIC";
-            }
-            const rate=await find_conversion_rate(ticker1,final_value[2],txn["block_timestamp"]);
-            final_value[0]+=rate*value_from_moralis;
+    var final_value,gas_price;
+    if(txn_storage_dict[temp_]==null){
+        if(value_from_moralis==null || isNaN(value_from_moralis)){
+            value_from_moralis=0;
         }
-    }
-    else if(chain_name=="polygon"){
-        if(num_nft_transfers>0) final_value=[value_from_moralis/num_nft_transfers,0,"MATIC"];
-        else final_value=[value_from_moralis,0,"MATIC"];
+        //console.log(transfersNFT.result[i].transaction_hash);
+        const value_from_hash_scans_=await value_from_hash(txn["transaction_hash"],waddress,
+        txn["from_address"],txn["to_address"],chain_name,num_nft_transfers);
+        //const value_from_hash_scans=null;
+        const value_from_hash_scans=value_from_hash_scans_[0];
+        gas_price=value_from_hash_scans_[1];
+        let nft_count=value_from_hash_scans_[2];
+        if(gas_price==null) gas_price=0;
+        if(value_from_hash_scans==-1){ //here we maybe skipping some transactions
+            txns_skipped++;
+            return [null,txns_processed,txns_skipped,count];
+        }
+        txns_processed++;
+        //console.log(value_from_moralis,value_from_hash_scans);
+        if(value_from_hash_scans!=null){
+            final_value=value_from_hash_scans;
+            if(final_value[0]<0){
+                let ticker1="ETH";
+                if(chain_name=="polygon"){
+                    ticker1="MATIC";
+                }
+                const rate=await find_conversion_rate(ticker1,final_value[2],txn["block_timestamp"]);
+                final_value[0]+=rate*value_from_moralis;
+            }
+        }
+        else if(chain_name=="polygon"){
+            if(num_nft_transfers>0) final_value=[value_from_moralis/num_nft_transfers,0,"MATIC"];
+            else final_value=[value_from_moralis,0,"MATIC"];
+        }
+        else{
+            if(num_nft_transfers>0) final_value=[value_from_moralis/num_nft_transfers,0,"ETH"];
+            else final_value=[value_from_moralis,0,"ETH"];
+        }
+        const rate=await find_conversion_rate(final_value[2],"ETH",txn["block_timestamp"]);
+        final_value[0]=rate*final_value[0];
+        final_value[1]=rate*final_value[1];
+        final_value[2]="ETH";
+        if(isNaN(final_value[0]) || final_value[0]==null){
+            final_value[0]=0;
+        }
+        if(isNaN(final_value[1]) || final_value[1]==null){
+            final_value[1]=0;
+        }
+        var ls=final_value;
+        ls.push(gas_price);
+        txn_storage_dict[temp_]=ls;
     }
     else{
-        if(num_nft_transfers>0) final_value=[value_from_moralis/num_nft_transfers,0,"ETH"];
-        else final_value=[value_from_moralis,0,"ETH"];
-    }
-    const rate=await find_conversion_rate(final_value[2],"ETH",txn["block_timestamp"]);
-    final_value[0]=rate*final_value[0];
-    final_value[1]=rate*final_value[1];
-    final_value[2]="ETH";
-    if(isNaN(final_value[0]) || final_value[0]==null){
-        final_value[0]=0;
-    }
-    if(isNaN(final_value[1]) || final_value[1]==null){
-        final_value[1]=0;
+        console.log("Bundled txn which we already stored in our dict. Picking value from there.");
+        var ls=txn_storage_dict[temp_];
+        final_value=ls.slice(0,3);
+        gas_price=ls[3];
     }
     count++;
     let action;
@@ -415,6 +432,7 @@ export async function get_size(waddress,chain_name){
 export async function return_NFT_transactions(userid,chain_name,waddress,txn_page=1,inventory_page=1,tokenwisemetric_page=1){
     var to_update=false;
     var curr_txn_list=[];
+    var txn_storage_dict={};//This will be useful to avoid recalculation of same from-to in a bundle transaction
     var txns_skipped=0;
     var txns_processed=0;
     const newResult = await get_page_txns(waddress,chain_name,1);
@@ -450,7 +468,7 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
         }
     }
     if(total_nft_transfers_required>25){
-        var ret=await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,false);
+        var ret=await call_server(waddress,chain_name,userid,txn_page,inventory_page,tokenwisemetric_page,true);
         return ret;
     }
 
@@ -471,7 +489,7 @@ export async function return_NFT_transactions(userid,chain_name,waddress,txn_pag
     console.log("For wallet address:",waddress," ,chain: ",chain_name,"total transactions:",all_transfers.length,"\nFollowing are the NFT Transaction values: ");
     let count=0;
     for(let i=0;i<all_transfers.length;i++){
-        var txn_row=await transaction_row(all_transfers[i],waddress,chain_name,userid,txns_processed,txns_skipped,count,count_dict);
+        var txn_row=await transaction_row(all_transfers[i],waddress,chain_name,userid,txns_processed,txns_skipped,count,count_dict,txn_storage_dict);
         var this_transaction=txn_row[0];
         txns_processed=txn_row[1];
         txns_skipped=txn_row[2];
